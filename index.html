@@ -417,10 +417,99 @@ function KeputusanScreen({keputusan}){
   const tally=useMemo(()=>getMedalTally(keputusan),[keputusan]);
   const results=ACARA.filter(a=>keputusan[a.id]?.p1?.winner);
 
+  const cetakPDF=useCallback(()=>{
+    const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const labelFor=(a,r)=>a.jenis==='relay'?r.winner:(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
+    const kelasFor=(a,r)=>a.jenis==='relay'?(r.winner.startsWith('Az')?'Az Zahra':'Nur Iman'):(MURID.find(m=>m.id===r.winner)?.k||'');
+    const tarikh=new Date().toLocaleDateString('ms-MY',{day:'numeric',month:'long',year:'numeric'});
+
+    const tallyRows=['Az Zahra','Nur Iman'].map(k=>{
+      const t=tally[k];const total=t.e+t.p+t.g;
+      return `<tr><td class="kelas">${esc(k)}</td><td>${t.e}</td><td>${t.p}</td><td>${t.g}</td><td class="jml">${total}</td></tr>`;
+    }).join('');
+
+    const acaraBlocks=results.map(a=>{
+      const res=keputusan[a.id]||{};
+      const rows=['p1','p2','p3'].map((pos,i)=>{
+        const r=res[pos];if(!r?.winner)return '';
+        const nama=labelFor(a,r);const kelas=kelasFor(a,r);
+        const nilai=r.nilai?`${esc(r.nilai)} ${esc(a.unit)}`:'';
+        return `<tr><td class="rank">${ME[i]}</td><td class="nama">${esc(nama)}</td><td class="kls">${esc(kelas)}</td><td class="nilai">${nilai}</td></tr>`;
+      }).join('');
+      const jenisLabel=a.j==='L'?'Lelaki':'Perempuan';
+      return `<div class="acara">
+        <div class="acara-head">
+          <div class="acara-nama">${esc(a.nama)}</div>
+          <div class="acara-meta">${jenisLabel} · ${a.u} Tahun${a.jenis==='relay'?' · Relay':''}</div>
+        </div>
+        <table class="podium"><tbody>${rows}</tbody></table>
+      </div>`;
+    }).join('');
+
+    const html=`<!DOCTYPE html><html lang="ms"><head><meta charset="UTF-8">
+<title>Keputusan Kejohanan Pra Sekolah – SK Sri Aman 2026</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111;font-size:11pt;line-height:1.4}
+.header{text-align:center;border-bottom:3px solid #1D4ED8;padding-bottom:10px;margin-bottom:16px}
+.header .sk{font-size:9pt;letter-spacing:2px;color:#6B7280;font-weight:700}
+.header h1{font-size:18pt;font-weight:900;margin:4px 0}
+.header .sub{font-size:10pt;color:#374151}
+.header .tarikh{font-size:9pt;color:#6B7280;margin-top:4px}
+h2{font-size:13pt;font-weight:800;margin:14px 0 8px;color:#1F2937;border-left:4px solid #DC2626;padding-left:8px}
+table{width:100%;border-collapse:collapse;font-size:10pt}
+.tally{margin-bottom:10px}
+.tally th,.tally td{border:1px solid #D1D5DB;padding:6px 8px;text-align:center}
+.tally th{background:#F3F4F6;font-weight:800;font-size:9pt}
+.tally td.kelas{text-align:left;font-weight:700}
+.tally td.jml{font-weight:900;background:#FEF3C7}
+.acara{margin-bottom:10px;page-break-inside:avoid;border:1px solid #E5E7EB;border-radius:6px;overflow:hidden}
+.acara-head{background:#F9FAFB;padding:6px 10px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:baseline}
+.acara-nama{font-weight:800;font-size:11pt}
+.acara-meta{font-size:9pt;color:#6B7280;font-weight:600}
+.podium td{padding:5px 10px;border-top:1px solid #F3F4F6}
+.podium tr:first-child td{border-top:none}
+.podium .rank{width:30px;font-size:14pt;text-align:center}
+.podium .nama{font-weight:700}
+.podium .kls{width:90px;font-size:9pt;color:#374151}
+.podium .nilai{width:90px;text-align:right;font-size:9pt;color:#6B7280;font-weight:700}
+.footer{margin-top:18px;text-align:center;font-size:8pt;color:#9CA3AF;border-top:1px solid #E5E7EB;padding-top:8px}
+@media print{.noprint{display:none}}
+.noprint{position:fixed;top:10px;right:10px;background:#1D4ED8;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:11pt}
+</style></head><body>
+<button class="noprint" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+<div class="header">
+  <div class="sk">SK SRI AMAN</div>
+  <h1>Keputusan Kejohanan Pra Sekolah</h1>
+  <div class="sub">Sesi Tahun 2026</div>
+  <div class="tarikh">Dijana pada ${esc(tarikh)}</div>
+</div>
+<h2>🏆 Jadual Pingat Akhir</h2>
+<table class="tally"><thead><tr><th style="text-align:left">Kelas</th><th>🥇 Emas</th><th>🥈 Perak</th><th>🥉 Gangsa</th><th>Jumlah</th></tr></thead><tbody>${tallyRows}</tbody></table>
+<h2>📋 Keputusan Acara (Top 3)</h2>
+${results.length===0?'<p style="text-align:center;color:#9CA3AF;padding:20px">Belum ada keputusan direkod.</p>':acaraBlocks}
+<div class="footer">Kejohanan Pra Sekolah SK Sri Aman 2026</div>
+<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>
+</body></html>`;
+    const w=window.open('','_blank');
+    if(!w){alert('Sila benarkan pop-up untuk cetak PDF.');return;}
+    w.document.write(html);w.document.close();
+  },[keputusan,tally,results]);
+
   return(
     <div style={{padding:'20px 16px 90px'}}>
-      <div style={{fontWeight:900,fontSize:22,marginBottom:4}}>Keputusan</div>
-      <div style={{fontSize:13,color:'#6B7280',fontWeight:600,marginBottom:16}}>{results.length} acara telah direkodkan</div>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:4}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:900,fontSize:22}}>Keputusan</div>
+          <div style={{fontSize:13,color:'#6B7280',fontWeight:600,marginTop:4}}>{results.length} acara telah direkodkan</div>
+        </div>
+        <button onClick={cetakPDF} disabled={results.length===0} title="Cetak PDF Top 3"
+          style={{flexShrink:0,background:results.length===0?'#E5E7EB':'linear-gradient(135deg,#1D4ED8,#5B21B6)',color:results.length===0?'#9CA3AF':'#fff',border:'none',borderRadius:12,padding:'10px 14px',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:13,cursor:results.length===0?'not-allowed':'pointer',boxShadow:results.length===0?'none':'0 2px 8px rgba(29,78,216,0.3)'}}>
+          <span style={{fontSize:18}}>🖨️</span><span>PDF</span>
+        </button>
+      </div>
+      <div style={{height:12}}/>
 
       {/* Medal table */}
       <Card style={{marginBottom:20}}>
