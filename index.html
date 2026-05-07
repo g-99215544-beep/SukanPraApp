@@ -49,6 +49,8 @@
 const {useState,useEffect,useCallback,useMemo,useRef}=React;
 const MURID=window.MURID_DATA;
 const ACARA=window.ACARA_DATA;
+const RELAY=window.RELAY_DATA||{};
+const DATA_VERSION=window.DATA_VERSION||'1';
 
 // ── Firebase hook — realtime sync to sukanprapp/data/<path> ──
 function useFirebase(path, init) {
@@ -105,7 +107,7 @@ function getMedalTally(keputusan){
     ['p1','p2','p3'].forEach((pos,i)=>{
       const r=res[pos];if(!r?.winner)return;
       let k=null;
-      if(a.jenis==='relay'){k=r.winner.startsWith('Az Zahra')?'Az Zahra':'Nur Iman';}
+      if(a.jenis==='relay'){const rd=RELAY[a.id];const kump=rd?.find(kk=>kk.nama===r.winner);k=kump?.kelas||null;}
       else{const m=MURID.find(m=>m.id===r.winner);k=m?m.k:null;}
       if(!k||!t[k])return;
       if(i===0)t[k].e++;else if(i===1)t[k].p++;else t[k].g++;
@@ -114,7 +116,7 @@ function getMedalTally(keputusan){
   return t;
 }
 function eligibleMurid(a){return MURID.filter(m=>m.u===a.u&&m.j===a.j)}
-function relayTeams(a){return a.u===6?['Az Zahra','Nur Iman']:['Az Zahra A','Az Zahra B']}
+function relayTeams(a){return RELAY[a.id]?RELAY[a.id].map(k=>k.nama):(a.u===6?['Az Zahra','Nur Iman']:['Az Zahra A','Az Zahra B'])}
 
 // ── UI Primitives ──
 function Badge({children,color='#374151',bg='#F3F4F6',sm}){
@@ -316,40 +318,30 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
               })}
             </div>
           ):(
-            // Relay
+            // Relay – paparan kumpulan yang telah ditetapkan
             <div>
-              <div style={{background:'#EDE9FE',borderRadius:12,padding:'10px 14px',marginBottom:14,fontSize:13,fontWeight:700,color:'#5B21B6'}}>
-                Pilih 4 pelari untuk setiap pasukan
-              </div>
-              {teams.map(team=>{
-                const teamKey=`${id}_${team}`;
-                const tSel=daftar[teamKey]||[];
-                const tEligible=eligible.filter(m=>{
-                  if(a.u===6)return m.k===(team==='Nur Iman'?'Nur Iman':'Az Zahra');
-                  return m.k==='Az Zahra';
-                });
-                const tColor=KC[team.startsWith('Nur')?'Nur Iman':'Az Zahra'];
-                const tBg=KB[team.startsWith('Nur')?'Nur Iman':'Az Zahra'];
+              {(RELAY[id]||[]).length===0&&(
+                <div style={{textAlign:'center',color:'#9CA3AF',padding:32}}>Tiada data kumpulan untuk acara ini.</div>
+              )}
+              {(RELAY[id]||[]).map((kump,ki)=>{
+                const tColor=kump.kelas?KC[kump.kelas]:'#6B7280';
+                const tBg=kump.kelas?KB[kump.kelas]:'#F3F4F6';
                 return(
-                  <div key={team} style={{marginBottom:20}}>
+                  <div key={kump.nama} style={{marginBottom:20}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                       <div style={{width:10,height:10,borderRadius:'50%',background:tColor}}/>
-                      <div style={{fontWeight:800,fontSize:14,color:tColor}}>Pasukan {team}</div>
-                      <Badge color={tSel.length===4?'#fff':'#374151'} bg={tSel.length===4?tColor:'#F3F4F6'}>{tSel.length}/4 pelari</Badge>
+                      <div style={{fontWeight:800,fontSize:14,color:tColor}}>{kump.nama}</div>
+                      {kump.kelas&&<Badge color={KC[kump.kelas]} bg={KB[kump.kelas]}>{kump.kelas}</Badge>}
+                      <Badge color='#374151' bg='#F3F4F6'>{kump.ahli.length} pelari</Badge>
                     </div>
-                    {tEligible.map(m=>{
-                      const checked=tSel.includes(m.id);
-                      const disabled=!checked&&tSel.length>=4;
+                    {kump.ahli.map((sid,i)=>{
+                      const m=MURID.find(x=>x.id===sid);
                       return(
-                        <button key={m.id} disabled={disabled} onClick={()=>{
-                          const cur=daftar[teamKey]||[];
-                          setDaftar({...daftar,[teamKey]:cur.includes(m.id)?cur.filter(x=>x!==m.id):[...cur,m.id]});
-                        }} style={{width:'100%',display:'flex',alignItems:'center',gap:12,background:checked?tBg:'#fff',border:`2px solid ${checked?tColor:'#E5E7EB'}`,borderRadius:12,padding:'10px 14px',marginBottom:6,cursor:disabled?'not-allowed':'pointer',opacity:disabled?.4:1,textAlign:'left'}}>
-                          <div style={{width:22,height:22,borderRadius:6,background:checked?tColor:'#F3F4F6',border:`2px solid ${checked?tColor:'#D1D5DB'}`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,flexShrink:0,fontWeight:900}}>
-                            {checked?'✓':''}
-                          </div>
-                          <div style={{fontWeight:700,fontSize:13}}>{m.nama}</div>
-                        </button>
+                        <div key={sid} style={{display:'flex',alignItems:'center',gap:12,background:'#fff',border:'1.5px solid #E5E7EB',borderRadius:12,padding:'10px 14px',marginBottom:6}}>
+                          <div style={{width:22,height:22,borderRadius:6,background:tBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:tColor,flexShrink:0}}>{i+1}</div>
+                          <div style={{flex:1,fontWeight:700,fontSize:13}}>{m?m.nama:sid}</div>
+                          {m&&<Badge sm color={KC[m.k]||'#374151'} bg={KB[m.k]||'#F3F4F6'}>{m.k}</Badge>}
+                        </div>
                       );
                     })}
                   </div>
@@ -420,7 +412,7 @@ function KeputusanScreen({keputusan}){
   const cetakPDF=useCallback(()=>{
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const labelFor=(a,r)=>a.jenis==='relay'?r.winner:(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
-    const kelasFor=(a,r)=>a.jenis==='relay'?(r.winner.startsWith('Az')?'Az Zahra':'Nur Iman'):(MURID.find(m=>m.id===r.winner)?.k||'');
+    const kelasFor=(a,r)=>a.jenis==='relay'?(RELAY[a.id]?.find(kk=>kk.nama===r.winner)?.kelas||''):(MURID.find(m=>m.id===r.winner)?.k||'');
     const tarikh=new Date().toLocaleDateString('ms-MY',{day:'numeric',month:'long',year:'numeric'});
 
     const tallyRows=['Az Zahra','Nur Iman'].map(k=>{
@@ -556,7 +548,7 @@ ${results.length===0?'<p style="text-align:center;color:#9CA3AF;padding:20px">Be
             {['p1','p2','p3'].map((pos,i)=>{
               const r=res[pos];if(!r?.winner)return null;
               const label=a.jenis==='relay'?r.winner:(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
-              const kelas=a.jenis==='relay'?(r.winner.startsWith('Az')?'Az Zahra':'Nur Iman'):(MURID.find(m=>m.id===r.winner)?.k);
+              const kelas=a.jenis==='relay'?(RELAY[a.id]?.find(kk=>kk.nama===r.winner)?.kelas||null):(MURID.find(m=>m.id===r.winner)?.k);
               return(
                 <div key={pos} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderTop:'1px solid #F9FAFB'}}>
                   <span style={{fontSize:20,flexShrink:0}}>{ME[i]}</span>
@@ -709,6 +701,29 @@ function App(){
   const[connected,setConnected]=useState(window.fbConnected||false);
 
   const ready = daftarReady && keputusanReady;
+
+  useEffect(()=>{
+    // Seed Firebase jika versi tidak sepadan – kekal data lontar peluru (e05-e08)
+    window.fbDB.ref('sukanprapp/meta/version').once('value',snap=>{
+      if(snap.val()!==DATA_VERSION){
+        window.fbDB.ref('sukanprapp/data').once('value',dataSnap=>{
+          const existing=dataSnap.val()||{};
+          const curKep=existing.keputusan||{};
+          const curDaftar=existing.daftar||{};
+          // Kekalkan lontar peluru
+          const newKep={};
+          ['e05','e06','e07','e08'].forEach(eid=>{if(curKep[eid])newKep[eid]=curKep[eid];});
+          const newDaftar={...(window.DAFTAR_DEFAULT||{})};
+          ['e05','e06','e07','e08'].forEach(eid=>{if(curDaftar[eid])newDaftar[eid]=curDaftar[eid];});
+          window.fbDB.ref().update({
+            'sukanprapp/data/daftar':newDaftar,
+            'sukanprapp/data/keputusan':newKep,
+            'sukanprapp/meta/version':DATA_VERSION,
+          });
+        });
+      }
+    });
+  },[]);
 
   useEffect(()=>{
     const handler=e=>{

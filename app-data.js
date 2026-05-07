@@ -66,3 +66,33 @@ window.ACARA_DATA = [
   {id:'e11',bil:11, nama:'Larian 4×50 meter', u:6,j:'L',jenis:'relay',   unit:'saat'},
   {id:'e12',bil:12, nama:'Larian 4×50 meter', u:6,j:'P',jenis:'relay',   unit:'saat'},
 ];
+
+window.RELAY_DATA = {
+  e09: [
+    {nama:'Kumpulan 1',kelas:'Az Zahra',ahli:['az07','az22','az12','az10']},
+    {nama:'Kumpulan 2',kelas:'Az Zahra',ahli:['az11','az08','az09','az03']},
+  ],
+  e10: [
+    {nama:'Kumpulan 1',kelas:'Az Zahra',ahli:['az21','az18','az20','az15']},
+    {nama:'Kumpulan 2',kelas:'Az Zahra',ahli:['az14','ni18','az13','az16']},
+    {nama:'Kumpulan 3',kelas:'Az Zahra',ahli:['az17','ni13','az04','az23']},
+  ],
+  e11: [
+    {nama:'Kumpulan 1',kelas:'Nur Iman',ahli:['ni05','ni07','ni02','az03']},
+    {nama:'Kumpulan 2',kelas:null,      ahli:['ni10','az01','ni01','az02']},
+  ],
+  e12: [
+    {nama:'Kumpulan 1',kelas:'Nur Iman',ahli:['ni15','ni23','ni19','ni22']},
+    {nama:'Kumpulan 2',kelas:'Nur Iman',ahli:['ni20','ni16','ni12','ni11']},
+    {nama:'Kumpulan 3',kelas:null,      ahli:['az06','ni14','az04','ni21']},
+  ],
+};
+
+window.DAFTAR_DEFAULT = {
+  e01: ['az07','az08','az09','az10','az11','az12','az22','az03'],
+  e02: ['az21','az18','az20','az16','az17','az19','az23','az05'],
+  e03: ['ni10','ni04','ni01','ni06','ni09','ni08','ni02','ni03'],
+  e04: ['ni14','ni23','ni12','ni21','ni15','ni13','ni18','ni17'],
+};
+
+window.DATA_VERSION = '2';
