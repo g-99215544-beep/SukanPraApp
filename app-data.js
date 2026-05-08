@@ -69,22 +69,22 @@ window.ACARA_DATA = [
 
 window.RELAY_DATA = {
   e09: [
-    {nama:'Kumpulan 1',kelas:'Az Zahra',ahli:['az07','az22','az12','az10']},
-    {nama:'Kumpulan 2',kelas:'Az Zahra',ahli:['az11','az08','az09','az03']},
+    {nama:'Kumpulan Biru',kelas:'Az Zahra',ahli:['az07','az22','az12','az10']},
+    {nama:'Kumpulan Merah',kelas:'Az Zahra',ahli:['az11','az08','az09','az03']},
   ],
   e10: [
-    {nama:'Kumpulan 1',kelas:'Az Zahra',ahli:['az21','az18','az20','az15']},
-    {nama:'Kumpulan 2',kelas:'Az Zahra',ahli:['az14','ni18','az13','az16']},
-    {nama:'Kumpulan 3',kelas:'Az Zahra',ahli:['az17','ni13','az04','az23']},
+    {nama:'Kumpulan Kuning',kelas:'Az Zahra',ahli:['az21','az18','az20','az15']},
+    {nama:'Kumpulan Hijau',kelas:'Az Zahra',ahli:['az14','ni18','az13','az16']},
+    {nama:'Kumpulan Merah',kelas:'Az Zahra',ahli:['az17','ni13','az04','az23']},
   ],
   e11: [
-    {nama:'Kumpulan 1',kelas:'Nur Iman',ahli:['ni05','ni07','ni02','az03']},
-    {nama:'Kumpulan 2',kelas:null,      ahli:['ni10','az01','ni01','az02']},
+    {nama:'Kumpulan Biru',kelas:'Nur Iman',ahli:['ni05','ni07','ni02','az03']},
+    {nama:'Kumpulan Merah',kelas:null,      ahli:['ni10','az01','ni01','az02']},
   ],
   e12: [
-    {nama:'Kumpulan 1',kelas:'Nur Iman',ahli:['ni15','ni23','ni19','ni22']},
-    {nama:'Kumpulan 2',kelas:'Nur Iman',ahli:['ni20','ni16','ni12','ni11']},
-    {nama:'Kumpulan 3',kelas:null,      ahli:['az06','ni14','az04','ni21']},
+    {nama:'Kumpulan Kuning',kelas:'Nur Iman',ahli:['ni15','ni23','ni19','ni22']},
+    {nama:'Kumpulan Hijau',kelas:'Nur Iman',ahli:['ni20','ni16','ni12','ni11']},
+    {nama:'Kumpulan Biru',kelas:null,      ahli:['az06','ni14','az04','ni21']},
   ],
 };
 
