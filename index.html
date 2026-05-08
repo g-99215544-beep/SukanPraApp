@@ -124,6 +124,15 @@ function getRelayTeam(a,winner){
   const legacy=String(winner||'').match(/^Kumpulan\s+(\d+)$/i);
   return legacy?teams[Number(legacy[1])-1]||null:null;
 }
+function relaySubKey(teamIndex,memberIndex){return `${teamIndex}-${memberIndex}`}
+function relayTeamIndex(a,team){return (RELAY[a.id]||[]).indexOf(team)}
+function effectiveRelayMemberIds(a,team,relaySubs={}){
+  const teamIndex=relayTeamIndex(a,team);
+  return (team?.ahli||[]).map((sid,i)=>{
+    const sub=teamIndex>=0?relaySubs?.[a.id]?.[relaySubKey(teamIndex,i)]:null;
+    return sub||sid;
+  });
+}
 function relayTeams(a){return RELAY[a.id]?RELAY[a.id].map(k=>k.nama):(a.u===6?['Az Zahra','Nur Iman']:['Az Zahra A','Az Zahra B'])}
 
 // ── UI Primitives ──
@@ -253,14 +262,16 @@ function AcaraScreen({onSelect,daftar,keputusan}){
 }
 
 // ── ACARA DETAIL ──
-function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
+function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySubs,setRelaySubs}){
   const[subTab,setSubTab]=useState('daftar');
+  const[subPicker,setSubPicker]=useState(null);
   const a=ACARA.find(x=>x.id===id);
   const eligible=useMemo(()=>eligibleMurid(a),[id]);
   const teams=useMemo(()=>relayTeams(a),[id]);
   const selected=daftar[id]||[];
   const res=keputusan[id]||{};
   const isL=a.j==='L';
+  const relayCandidates=useMemo(()=>MURID.filter(m=>m.j===a.j),[id]);
 
   function toggleStudent(sid){
     const cur=daftar[id]||[];
@@ -269,6 +280,17 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
   function setResult(pos,field,val){
     const cur=keputusan[id]||{};
     setKeputusan({...keputusan,[id]:{...cur,[pos]:{...(cur[pos]||{}),[field]:val}}});
+  }
+  function setRelaySub(teamIndex,memberIndex,originalSid,nextSid){
+    const key=relaySubKey(teamIndex,memberIndex);
+    const eventSubs={...(relaySubs[id]||{})};
+    if(!nextSid||nextSid===originalSid)delete eventSubs[key];
+    else eventSubs[key]=nextSid;
+    const next={...relaySubs};
+    if(Object.keys(eventSubs).length)next[id]=eventSubs;
+    else delete next[id];
+    setRelaySubs(next);
+    setSubPicker(null);
   }
 
   return(
@@ -343,13 +365,22 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
                       <Badge color='#374151' bg='#F3F4F6'>{kump.ahli.length} pelari</Badge>
                     </div>
                     {kump.ahli.map((sid,i)=>{
-                      const m=MURID.find(x=>x.id===sid);
+                      const subSid=relaySubs?.[id]?.[relaySubKey(ki,i)];
+                      const activeSid=subSid||sid;
+                      const m=MURID.find(x=>x.id===activeSid);
+                      const asal=MURID.find(x=>x.id===sid);
+                      const isSub=!!subSid&&subSid!==sid;
                       return(
-                        <div key={sid} style={{display:'flex',alignItems:'center',gap:12,background:'#fff',border:'1.5px solid #E5E7EB',borderRadius:12,padding:'10px 14px',marginBottom:6}}>
+                        <button key={`${sid}-${i}`} onClick={()=>setSubPicker({teamIndex:ki,memberIndex:i,originalSid:sid,activeSid,kumpNama:kump.nama})}
+                          style={{width:'100%',display:'flex',alignItems:'center',gap:12,background:isSub?'#FFFBEB':'#fff',border:`1.5px solid ${isSub?'#FBBF24':'#E5E7EB'}`,borderRadius:12,padding:'10px 14px',marginBottom:6,cursor:'pointer',textAlign:'left'}}>
                           <div style={{width:22,height:22,borderRadius:6,background:tBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:tColor,flexShrink:0}}>{i+1}</div>
-                          <div style={{flex:1,fontWeight:700,fontSize:13}}>{m?m.nama:sid}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:800,fontSize:13,color:'#111'}}>{m?m.nama:activeSid}</div>
+                            {isSub&&<div style={{fontSize:10,color:'#92400E',fontWeight:700,marginTop:2}}>Pengganti asal: {asal?asal.nama:sid}</div>}
+                          </div>
+                          {isSub&&<Badge sm color='#92400E' bg='#FEF3C7'>Pengganti</Badge>}
                           {m&&<Badge sm color={KC[m.k]||'#374151'} bg={KB[m.k]||'#F3F4F6'}>{m.k}</Badge>}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -408,15 +439,45 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
           </div>
         )}
       </div>
+      {subPicker&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(17,24,39,0.45)',zIndex:600,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+          <div style={{width:'100%',maxWidth:430,maxHeight:'78vh',background:'#fff',borderRadius:'18px 18px 0 0',padding:'16px 16px 20px',overflowY:'auto',boxShadow:'0 -8px 30px rgba(0,0,0,0.18)'}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:900,fontSize:16,color:'#111'}}>Pilih Pengganti</div>
+                <div style={{fontSize:12,color:'#6B7280',fontWeight:700,marginTop:2}}>{subPicker.kumpNama} - Pelari {subPicker.memberIndex+1}</div>
+              </div>
+              <button onClick={()=>setSubPicker(null)} style={{width:34,height:34,border:'none',borderRadius:10,background:'#F3F4F6',fontWeight:900,cursor:'pointer',color:'#374151'}}>x</button>
+            </div>
+            <button onClick={()=>setRelaySub(subPicker.teamIndex,subPicker.memberIndex,subPicker.originalSid,subPicker.originalSid)}
+              style={{width:'100%',border:'2px solid #E5E7EB',background:'#FAFAFA',borderRadius:12,padding:'11px 14px',fontWeight:800,fontSize:13,color:'#374151',cursor:'pointer',marginBottom:10,textAlign:'left'}}>
+              Guna semula murid asal
+            </button>
+            {relayCandidates.map(m=>(
+              <button key={m.id} onClick={()=>setRelaySub(subPicker.teamIndex,subPicker.memberIndex,subPicker.originalSid,m.id)}
+                style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:m.id===subPicker.activeSid?KB[m.k]:'#fff',border:`1.5px solid ${m.id===subPicker.activeSid?KC[m.k]:'#E5E7EB'}`,borderRadius:12,padding:'10px 12px',marginBottom:7,cursor:'pointer',textAlign:'left'}}>
+                <div style={{width:28,height:28,borderRadius:8,background:m.j==='L'?'#EFF6FF':'#FDF2F8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:900,flexShrink:0}}>
+                  {m.j==='L'?'L':'P'}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:800,fontSize:12.5,color:'#111'}}>{m.nama}</div>
+                  <div style={{fontSize:10.5,color:'#6B7280',fontWeight:700,marginTop:2}}>{m.u} Tahun - {m.k}</div>
+                </div>
+                {m.id===subPicker.activeSid&&<Badge sm color={KC[m.k]||'#374151'} bg={KB[m.k]||'#F3F4F6'}>Dipilih</Badge>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── KEPUTUSAN ──
-function KeputusanScreen({keputusan}){
+function KeputusanScreen({keputusan,relaySubs}){
   const tally=useMemo(()=>getMedalTally(keputusan),[keputusan]);
   const results=ACARA.filter(a=>keputusan[a.id]?.p1?.winner);
-  const relayMemberNames=team=>(team?.ahli||[]).map(sid=>MURID.find(m=>m.id===sid)?.nama||sid);
+  const relayMemberNames=(a,team)=>effectiveRelayMemberIds(a,team,relaySubs).map(sid=>MURID.find(m=>m.id===sid)?.nama||sid);
 
   const cetakPDF=useCallback(()=>{
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -435,7 +496,7 @@ function KeputusanScreen({keputusan}){
         const r=res[pos];if(!r?.winner)return '';
         const nama=labelFor(a,r);const kelas=kelasFor(a,r);
         const team=getRelayTeam(a,r.winner);
-        const members=relayMemberNames(team);
+        const members=relayMemberNames(a,team);
         const memberList=members.length?`<div class="members">${members.map((n,mi)=>`<div>${mi+1}. ${esc(n)}</div>`).join('')}</div>`:'';
         const nilai=r.nilai?`${esc(r.nilai)} ${esc(a.unit)}`:'';
         return `<tr><td class="rank">${ME[i]}</td><td class="nama"><div class="winner">${esc(nama)}</div>${memberList}</td><td class="kls">${esc(kelas)}</td><td class="nilai">${nilai}</td></tr>`;
@@ -501,7 +562,7 @@ ${results.length===0?'<p style="text-align:center;color:#9CA3AF;padding:20px">Be
     const w=window.open('','_blank');
     if(!w){alert('Sila benarkan pop-up untuk cetak PDF.');return;}
     w.document.write(html);w.document.close();
-  },[keputusan,tally,results]);
+  },[keputusan,tally,results,relaySubs]);
 
   return(
     <div style={{padding:'20px 16px 90px'}}>
@@ -562,7 +623,7 @@ ${results.length===0?'<p style="text-align:center;color:#9CA3AF;padding:20px">Be
             {['p1','p2','p3'].map((pos,i)=>{
               const r=res[pos];if(!r?.winner)return null;
               const team=getRelayTeam(a,r.winner);
-              const members=relayMemberNames(team);
+              const members=relayMemberNames(a,team);
               const label=a.jenis==='relay'?(team?.nama||r.winner):(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
               const kelas=a.jenis==='relay'?(team?.kelas||null):(MURID.find(m=>m.id===r.winner)?.k);
               return(
@@ -725,10 +786,11 @@ function App(){
   const[acaraId,setAcaraId]=useState(null);
   const[daftar,setDaftar,daftarReady]=useFirebase('daftar',{});
   const[keputusan,setKeputusan,keputusanReady]=useFirebase('keputusan',{});
+  const[relaySubs,setRelaySubs,relaySubsReady]=useFirebase('relaySubs',{});
   const[tweaksVisible,setTweaksVisible]=useState(false);
   const[connected,setConnected]=useState(window.fbConnected||false);
 
-  const ready = daftarReady && keputusanReady;
+  const ready = daftarReady && keputusanReady && relaySubsReady;
 
   useEffect(()=>{
     // Seed Firebase jika versi tidak sepadan – kekal data lontar peluru (e05-e08)
@@ -797,7 +859,8 @@ function App(){
       <ConnBadge/>
       <AcaraDetail id={acaraId} onBack={()=>setAcaraId(null)}
         daftar={daftar} setDaftar={setDaftar}
-        keputusan={keputusan} setKeputusan={setKeputusan}/>
+        keputusan={keputusan} setKeputusan={setKeputusan}
+        relaySubs={relaySubs} setRelaySubs={setRelaySubs}/>
       <TweaksPanel visible={tweaksVisible}/>
     </div>
   );
@@ -808,7 +871,7 @@ function App(){
       <div style={{overflowY:'auto',height:'100vh'}}>
         {tab==='home'&&<HomeScreen setTab={setTab} keputusan={keputusan}/>}
         {tab==='acara'&&<AcaraScreen onSelect={setAcaraId} daftar={daftar} keputusan={keputusan}/>}
-        {tab==='keputusan'&&<KeputusanScreen keputusan={keputusan}/>}
+        {tab==='keputusan'&&<KeputusanScreen keputusan={keputusan} relaySubs={relaySubs}/>}
         {tab==='murid'&&<MuridScreen daftar={daftar}/>}
       </div>
       <BottomNav tab={tab} setTab={setTab}/>
