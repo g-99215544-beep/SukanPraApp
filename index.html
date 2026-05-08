@@ -107,7 +107,7 @@ function getMedalTally(keputusan){
     ['p1','p2','p3'].forEach((pos,i)=>{
       const r=res[pos];if(!r?.winner)return;
       let k=null;
-      if(a.jenis==='relay'){const rd=RELAY[a.id];const kump=rd?.find(kk=>kk.nama===r.winner);k=kump?.kelas||null;}
+      if(a.jenis==='relay'){const kump=getRelayTeam(a,r.winner);k=kump?.kelas||null;}
       else{const m=MURID.find(m=>m.id===r.winner);k=m?m.k:null;}
       if(!k||!t[k])return;
       if(i===0)t[k].e++;else if(i===1)t[k].p++;else t[k].g++;
@@ -116,6 +116,14 @@ function getMedalTally(keputusan){
   return t;
 }
 function eligibleMurid(a){return MURID.filter(m=>m.u===a.u&&m.j===a.j)}
+function getRelayTeam(a,winner){
+  if(!a||a.jenis!=='relay')return null;
+  const teams=RELAY[a.id]||[];
+  const exact=teams.find(kk=>kk.nama===winner);
+  if(exact)return exact;
+  const legacy=String(winner||'').match(/^Kumpulan\s+(\d+)$/i);
+  return legacy?teams[Number(legacy[1])-1]||null:null;
+}
 function relayTeams(a){return RELAY[a.id]?RELAY[a.id].map(k=>k.nama):(a.u===6?['Az Zahra','Nur Iman']:['Az Zahra A','Az Zahra B'])}
 
 // ── UI Primitives ──
@@ -408,11 +416,12 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan}){
 function KeputusanScreen({keputusan}){
   const tally=useMemo(()=>getMedalTally(keputusan),[keputusan]);
   const results=ACARA.filter(a=>keputusan[a.id]?.p1?.winner);
+  const relayMemberNames=team=>(team?.ahli||[]).map(sid=>MURID.find(m=>m.id===sid)?.nama||sid);
 
   const cetakPDF=useCallback(()=>{
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const labelFor=(a,r)=>a.jenis==='relay'?r.winner:(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
-    const kelasFor=(a,r)=>a.jenis==='relay'?(RELAY[a.id]?.find(kk=>kk.nama===r.winner)?.kelas||''):(MURID.find(m=>m.id===r.winner)?.k||'');
+    const labelFor=(a,r)=>a.jenis==='relay'?(getRelayTeam(a,r.winner)?.nama||r.winner):(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
+    const kelasFor=(a,r)=>a.jenis==='relay'?(getRelayTeam(a,r.winner)?.kelas||''):(MURID.find(m=>m.id===r.winner)?.k||'');
     const tarikh=new Date().toLocaleDateString('ms-MY',{day:'numeric',month:'long',year:'numeric'});
 
     const tallyRows=['Az Zahra','Nur Iman'].map(k=>{
@@ -425,8 +434,11 @@ function KeputusanScreen({keputusan}){
       const rows=['p1','p2','p3'].map((pos,i)=>{
         const r=res[pos];if(!r?.winner)return '';
         const nama=labelFor(a,r);const kelas=kelasFor(a,r);
+        const team=getRelayTeam(a,r.winner);
+        const members=relayMemberNames(team);
+        const memberList=members.length?`<div class="members">${members.map((n,mi)=>`<div>${mi+1}. ${esc(n)}</div>`).join('')}</div>`:'';
         const nilai=r.nilai?`${esc(r.nilai)} ${esc(a.unit)}`:'';
-        return `<tr><td class="rank">${ME[i]}</td><td class="nama">${esc(nama)}</td><td class="kls">${esc(kelas)}</td><td class="nilai">${nilai}</td></tr>`;
+        return `<tr><td class="rank">${ME[i]}</td><td class="nama"><div class="winner">${esc(nama)}</div>${memberList}</td><td class="kls">${esc(kelas)}</td><td class="nilai">${nilai}</td></tr>`;
       }).join('');
       const jenisLabel=a.j==='L'?'Lelaki':'Perempuan';
       return `<div class="acara">
@@ -464,6 +476,8 @@ table{width:100%;border-collapse:collapse;font-size:10pt}
 .podium tr:first-child td{border-top:none}
 .podium .rank{width:30px;font-size:14pt;text-align:center}
 .podium .nama{font-weight:700}
+.podium .winner{font-weight:800}
+.podium .members{font-weight:500;font-size:8.5pt;color:#4B5563;margin-top:2px;line-height:1.35}
 .podium .kls{width:90px;font-size:9pt;color:#374151}
 .podium .nilai{width:90px;text-align:right;font-size:9pt;color:#6B7280;font-weight:700}
 .footer{margin-top:18px;text-align:center;font-size:8pt;color:#9CA3AF;border-top:1px solid #E5E7EB;padding-top:8px}
@@ -547,14 +561,28 @@ ${results.length===0?'<p style="text-align:center;color:#9CA3AF;padding:20px">Be
             </div>
             {['p1','p2','p3'].map((pos,i)=>{
               const r=res[pos];if(!r?.winner)return null;
-              const label=a.jenis==='relay'?r.winner:(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
-              const kelas=a.jenis==='relay'?(RELAY[a.id]?.find(kk=>kk.nama===r.winner)?.kelas||null):(MURID.find(m=>m.id===r.winner)?.k);
+              const team=getRelayTeam(a,r.winner);
+              const members=relayMemberNames(team);
+              const label=a.jenis==='relay'?(team?.nama||r.winner):(MURID.find(m=>m.id===r.winner)?.nama||r.winner);
+              const kelas=a.jenis==='relay'?(team?.kelas||null):(MURID.find(m=>m.id===r.winner)?.k);
               return(
-                <div key={pos} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderTop:'1px solid #F9FAFB'}}>
+                <div key={pos} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderTop:'1px solid #F9FAFB'}}>
                   <span style={{fontSize:20,flexShrink:0}}>{ME[i]}</span>
-                  <div style={{flex:1,fontSize:13,fontWeight:700,color:'#111'}}>{label}</div>
-                  {kelas&&<Badge color={KC[kelas]||'#374151'} bg={KB[kelas]||'#F3F4F6'} sm>{kelas}</Badge>}
-                  {r.nilai&&<span style={{fontSize:12,color:'#6B7280',fontWeight:700,flexShrink:0}}>{r.nilai} {a.unit}</span>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#111',marginBottom:members.length?5:0}}>{label}</div>
+                    {members.length>0&&(
+                      <div style={{display:'grid',gap:3,fontSize:11,color:'#4B5563',fontWeight:700,lineHeight:1.25}}>
+                        {members.map((name,mi)=><div key={`${pos}-${mi}`} style={{display:'flex',gap:5}}>
+                          <span style={{color:'#9CA3AF',width:14,flexShrink:0}}>{mi+1}.</span>
+                          <span>{name}</span>
+                        </div>)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5,flexShrink:0}}>
+                    {kelas&&<Badge color={KC[kelas]||'#374151'} bg={KB[kelas]||'#F3F4F6'} sm>{kelas}</Badge>}
+                    {r.nilai&&<span style={{fontSize:12,color:'#6B7280',fontWeight:700}}>{r.nilai} {a.unit}</span>}
+                  </div>
                 </div>
               );
             })}
