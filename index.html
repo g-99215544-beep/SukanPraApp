@@ -272,6 +272,18 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
   const res=keputusan[id]||{};
   const isL=a.j==='L';
   const relayCandidates=useMemo(()=>MURID.filter(m=>m.j===a.j),[id]);
+  function relayOccupiedIds(skipTeamIndex=null,skipMemberIndex=null){
+    const ids=new Set();
+    (RELAY[id]||[]).forEach((team,ti)=>{
+      team.ahli.forEach((sid,mi)=>{
+        if(ti===skipTeamIndex&&mi===skipMemberIndex)return;
+        ids.add(sid);
+        const sub=relaySubs?.[id]?.[relaySubKey(ti,mi)];
+        if(sub)ids.add(sub);
+      });
+    });
+    return ids;
+  }
 
   function toggleStudent(sid){
     const cur=daftar[id]||[];
@@ -283,6 +295,10 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
   }
   function setRelaySub(teamIndex,memberIndex,originalSid,nextSid){
     const key=relaySubKey(teamIndex,memberIndex);
+    if(nextSid&&nextSid!==originalSid&&relayOccupiedIds(teamIndex,memberIndex).has(nextSid)){
+      alert('Murid ini sudah berada dalam kumpulan relay acara ini.');
+      return;
+    }
     const eventSubs={...(relaySubs[id]||{})};
     if(!nextSid||nextSid===originalSid)delete eventSubs[key];
     else eventSubs[key]=nextSid;
@@ -453,19 +469,27 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
               style={{width:'100%',border:'2px solid #E5E7EB',background:'#FAFAFA',borderRadius:12,padding:'11px 14px',fontWeight:800,fontSize:13,color:'#374151',cursor:'pointer',marginBottom:10,textAlign:'left'}}>
               Guna semula murid asal
             </button>
-            {relayCandidates.map(m=>(
-              <button key={m.id} onClick={()=>setRelaySub(subPicker.teamIndex,subPicker.memberIndex,subPicker.originalSid,m.id)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:m.id===subPicker.activeSid?KB[m.k]:'#fff',border:`1.5px solid ${m.id===subPicker.activeSid?KC[m.k]:'#E5E7EB'}`,borderRadius:12,padding:'10px 12px',marginBottom:7,cursor:'pointer',textAlign:'left'}}>
-                <div style={{width:28,height:28,borderRadius:8,background:m.j==='L'?'#EFF6FF':'#FDF2F8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:900,flexShrink:0}}>
-                  {m.j==='L'?'L':'P'}
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:800,fontSize:12.5,color:'#111'}}>{m.nama}</div>
-                  <div style={{fontSize:10.5,color:'#6B7280',fontWeight:700,marginTop:2}}>{m.u} Tahun - {m.k}</div>
-                </div>
-                {m.id===subPicker.activeSid&&<Badge sm color={KC[m.k]||'#374151'} bg={KB[m.k]||'#F3F4F6'}>Dipilih</Badge>}
-              </button>
-            ))}
+            {(()=>{
+              const occupied=relayOccupiedIds(subPicker.teamIndex,subPicker.memberIndex);
+              const candidates=relayCandidates.filter(m=>
+                (m.id===subPicker.activeSid&&subPicker.activeSid!==subPicker.originalSid)||
+                (!occupied.has(m.id)&&m.id!==subPicker.originalSid)
+              );
+              if(candidates.length===0)return <div style={{textAlign:'center',padding:'18px 10px',color:'#9CA3AF',fontSize:12,fontWeight:700}}>Tiada murid pengganti tersedia.</div>;
+              return candidates.map(m=>(
+                <button key={m.id} onClick={()=>setRelaySub(subPicker.teamIndex,subPicker.memberIndex,subPicker.originalSid,m.id)}
+                  style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:m.id===subPicker.activeSid?KB[m.k]:'#fff',border:`1.5px solid ${m.id===subPicker.activeSid?KC[m.k]:'#E5E7EB'}`,borderRadius:12,padding:'10px 12px',marginBottom:7,cursor:'pointer',textAlign:'left'}}>
+                  <div style={{width:28,height:28,borderRadius:8,background:m.j==='L'?'#EFF6FF':'#FDF2F8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:900,flexShrink:0}}>
+                    {m.j==='L'?'L':'P'}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:800,fontSize:12.5,color:'#111'}}>{m.nama}</div>
+                    <div style={{fontSize:10.5,color:'#6B7280',fontWeight:700,marginTop:2}}>{m.u} Tahun - {m.k}</div>
+                  </div>
+                  {m.id===subPicker.activeSid&&<Badge sm color={KC[m.k]||'#374151'} bg={KB[m.k]||'#F3F4F6'}>Dipilih</Badge>}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       )}
