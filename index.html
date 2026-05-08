@@ -133,6 +133,21 @@ function effectiveRelayMemberIds(a,team,relaySubs={}){
     return sub||sid;
   });
 }
+function relayTeamUsedIds(teamName,relaySubs={},skipEventId=null,skipTeamIndex=null,skipMemberIndex=null){
+  const ids=new Set();
+  ACARA.filter(a=>a.jenis==='relay').forEach(a=>{
+    (RELAY[a.id]||[]).forEach((team,ti)=>{
+      if(team.nama!==teamName)return;
+      team.ahli.forEach((sid,mi)=>{
+        if(a.id===skipEventId&&ti===skipTeamIndex&&mi===skipMemberIndex)return;
+        ids.add(sid);
+        const sub=relaySubs?.[a.id]?.[relaySubKey(ti,mi)];
+        if(sub)ids.add(sub);
+      });
+    });
+  });
+  return ids;
+}
 function relayTeams(a){return RELAY[a.id]?RELAY[a.id].map(k=>k.nama):(a.u===6?['Az Zahra','Nur Iman']:['Az Zahra A','Az Zahra B'])}
 
 // ── UI Primitives ──
@@ -284,6 +299,14 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
     });
     return ids;
   }
+  function relayBlockedIds(teamIndex,memberIndex){
+    const teamName=RELAY[id]?.[teamIndex]?.nama;
+    const blocked=relayOccupiedIds(teamIndex,memberIndex);
+    if(teamName){
+      relayTeamUsedIds(teamName,relaySubs,id,teamIndex,memberIndex).forEach(sid=>blocked.add(sid));
+    }
+    return blocked;
+  }
 
   function toggleStudent(sid){
     const cur=daftar[id]||[];
@@ -295,8 +318,8 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
   }
   function setRelaySub(teamIndex,memberIndex,originalSid,nextSid){
     const key=relaySubKey(teamIndex,memberIndex);
-    if(nextSid&&nextSid!==originalSid&&relayOccupiedIds(teamIndex,memberIndex).has(nextSid)){
-      alert('Murid ini sudah berada dalam kumpulan relay acara ini.');
+    if(nextSid&&nextSid!==originalSid&&relayBlockedIds(teamIndex,memberIndex).has(nextSid)){
+      alert('Murid ini sudah berada dalam kumpulan relay atau team warna yang sama.');
       return;
     }
     const eventSubs={...(relaySubs[id]||{})};
@@ -470,9 +493,8 @@ function AcaraDetail({id,onBack,daftar,setDaftar,keputusan,setKeputusan,relaySub
               Guna semula murid asal
             </button>
             {(()=>{
-              const occupied=relayOccupiedIds(subPicker.teamIndex,subPicker.memberIndex);
+              const occupied=relayBlockedIds(subPicker.teamIndex,subPicker.memberIndex);
               const candidates=relayCandidates.filter(m=>
-                (m.id===subPicker.activeSid&&subPicker.activeSid!==subPicker.originalSid)||
                 (!occupied.has(m.id)&&m.id!==subPicker.originalSid)
               );
               if(candidates.length===0)return <div style={{textAlign:'center',padding:'18px 10px',color:'#9CA3AF',fontSize:12,fontWeight:700}}>Tiada murid pengganti tersedia.</div>;
